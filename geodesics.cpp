@@ -19,11 +19,13 @@
 #include "trackball.h"
 
 typedef struct {
+    std::vector<float> buffer;
     GLuint vb_id;
     int numTriangles;
 } DrawObject;
 
 typedef struct {
+    std::vector<float> buffer;
     GLuint vb_id;
     int numPoints;
 } DrawPoints;
@@ -67,7 +69,8 @@ static bool update_draw_objects(glm::vec3& bmin, glm::vec3& bmax, std::vector<Dr
 
     for (size_t s = 0; s < shapes.size(); s++) {
         DrawObject& o = drawObjects[s];
-        std::vector<float> buffer;
+        o.buffer.resize((3 + 3 + 3) * shapes[s].mesh.indices.size());
+        size_t b = 0;
 
         for (size_t f = 0; f < shapes[s].mesh.indices.size() / 3; f++) {
             tinyobj::index_t idx0 = shapes[s].mesh.indices[3 * f + 0];
@@ -98,31 +101,31 @@ static bool update_draw_objects(glm::vec3& bmin, glm::vec3& bmax, std::vector<Dr
             n[0] = n[1] = n[2] = glm::triangleNormal(v[0], v[1], v[2]);
 
             for (int k = 0; k < 3; k++) {
-                buffer.push_back(v[k][0]);
-                buffer.push_back(v[k][1]);
-                buffer.push_back(v[k][2]);
-                buffer.push_back(n[k][0]);
-                buffer.push_back(n[k][1]);
-                buffer.push_back(n[k][2]);
+                o.buffer[b++] = v[k][0];
+                o.buffer[b++] = v[k][1];
+                o.buffer[b++] = v[k][2];
+                o.buffer[b++] = n[k][0];
+                o.buffer[b++] = n[k][1];
+                o.buffer[b++] = n[k][2];
 
                 glm::vec3 diffuse{1.0f, 0.0f, 0.0f};
                 float dist = g_geodesic_distance[shapes[s].mesh.indices[3 * f + k].vertex_index];
                 dist = (g_geodesic_radius - dist) / g_geodesic_radius;
                 glm::vec3 color = dist*diffuse;
-                buffer.push_back(color[0]);
-                buffer.push_back(color[1]);
-                buffer.push_back(color[2]);
+                o.buffer[b++] = color[0];
+                o.buffer[b++] = color[1];
+                o.buffer[b++] = color[2];
             }
         }
 
         o.vb_id = 0;
         o.numTriangles = 0;
 
-        if (buffer.size() > 0) {
+        if (o.buffer.size() > 0) {
             glGenBuffers(1, &o.vb_id);
             glBindBuffer(GL_ARRAY_BUFFER, o.vb_id);
-            glBufferData(GL_ARRAY_BUFFER, buffer.size() * sizeof(float), &buffer.at(0), GL_STATIC_DRAW);
-            o.numTriangles = buffer.size() / (3 + 3 + 3) / 3;
+            glBufferData(GL_ARRAY_BUFFER, o.buffer.size() * sizeof(float), &o.buffer.at(0), GL_STATIC_DRAW);
+            o.numTriangles = o.buffer.size() / (3 + 3 + 3) / 3;
         }
     }
 
@@ -130,20 +133,21 @@ static bool update_draw_objects(glm::vec3& bmin, glm::vec3& bmax, std::vector<Dr
 }
 
 void update_draw_points(const tinyobj::attrib_t& attrib) {
-    std::vector<float> buffer;
+    g_draw_points.buffer.resize(g_geodesic_distance.size() * 3);
+    size_t b = 0;
     for (size_t i = 0; i < g_geodesic_distance.size(); ++i) {
         if (g_geodesic_distance[i] <= g_geodesic_radius) {
-            buffer.push_back(attrib.vertices[3 * i + 0]);
-            buffer.push_back(attrib.vertices[3 * i + 1]);
-            buffer.push_back(attrib.vertices[3 * i + 2]);
+            g_draw_points.buffer[b++] = attrib.vertices[3 * i + 0];
+            g_draw_points.buffer[b++] = attrib.vertices[3 * i + 1];
+            g_draw_points.buffer[b++] = attrib.vertices[3 * i + 2];
         }
     }
-    if (!buffer.empty()) {
+    if (!g_draw_points.buffer.empty()) {
         glGenBuffers(1, &g_draw_points.vb_id);
         glBindBuffer(GL_ARRAY_BUFFER, g_draw_points.vb_id);
-        glBufferData(GL_ARRAY_BUFFER, buffer.size() * sizeof(float), &buffer.at(0), GL_STATIC_DRAW);
+        glBufferData(GL_ARRAY_BUFFER, g_draw_points.buffer.size() * sizeof(float), &g_draw_points.buffer.at(0), GL_STATIC_DRAW);
     }
-    g_draw_points.numPoints = buffer.size() / 3;
+    g_draw_points.numPoints = g_draw_points.buffer.size() / 3;
 }
 
 static void window_size_callback(GLFWwindow* window, int w, int h) {
