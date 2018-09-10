@@ -34,6 +34,8 @@ std::vector<DrawObject> g_draw_objects;
 DrawPoints g_draw_points;
 
 tinyobj::attrib_t g_attrib;
+std::vector<tinyobj::shape_t> g_shapes;
+glm::vec3 g_bmin, g_bmax;
 std::vector<float> g_geodesic_distance;
 
 int width = 768;
@@ -58,13 +60,13 @@ static void check_gl_errors(const std::string& desc) {
     }
 }
 
-static bool convert(glm::vec3& bmin, glm::vec3& bmax, std::vector<DrawObject>* drawObjects,
+static bool update_draw_objects(glm::vec3& bmin, glm::vec3& bmax, std::vector<DrawObject>& drawObjects,
                     const tinyobj::attrib_t& attrib, const std::vector<tinyobj::shape_t>& shapes) {
     bmin[0] = bmin[1] = bmin[2] = std::numeric_limits<float>::max();
     bmax[0] = bmax[1] = bmax[2] = -std::numeric_limits<float>::max();
 
     for (size_t s = 0; s < shapes.size(); s++) {
-        DrawObject o;
+        DrawObject& o = drawObjects[s];
         std::vector<float> buffer;
 
         for (size_t f = 0; f < shapes[s].mesh.indices.size() / 3; f++) {
@@ -102,12 +104,11 @@ static bool convert(glm::vec3& bmin, glm::vec3& bmax, std::vector<DrawObject>* d
                 buffer.push_back(n[k][0]);
                 buffer.push_back(n[k][1]);
                 buffer.push_back(n[k][2]);
-                glm::vec3 diffuse{0.4f, 0.4f, 0.4f};
-                glm::vec3 light_pos{-50.f, -50.f, -25.f};
-                glm::vec3 norm = glm::normalize(n[k]);
-                glm::vec3 light_dir = glm::normalize(light_pos - v[k]);
-                float diff = std::max(0.f, glm::dot(norm, light_dir));
-                glm::vec3 color{diffuse[0] * diff, diffuse[1] * diff, diffuse[2] * diff};
+
+                glm::vec3 diffuse{1.0f, 0.0f, 0.0f};
+                float dist = g_geodesic_distance[shapes[s].mesh.indices[3 * f + k].vertex_index];
+                dist = (g_geodesic_radius - dist) / g_geodesic_radius;
+                glm::vec3 color = dist*diffuse;
                 buffer.push_back(color[0]);
                 buffer.push_back(color[1]);
                 buffer.push_back(color[2]);
@@ -123,8 +124,6 @@ static bool convert(glm::vec3& bmin, glm::vec3& bmax, std::vector<DrawObject>* d
             glBufferData(GL_ARRAY_BUFFER, buffer.size() * sizeof(float), &buffer.at(0), GL_STATIC_DRAW);
             o.numTriangles = buffer.size() / (3 + 3 + 3) / 3;
         }
-
-        drawObjects->push_back(o);
     }
 
     return true;
@@ -211,6 +210,7 @@ static void scroll_callback(GLFWwindow* window, double xoffset, double yoffset) 
         g_geodesic_radius += yoffset*g_geodesic_radius_mod;
         printf("radius: %f\n", g_geodesic_radius);
         update_draw_points(g_attrib);
+        update_draw_objects(g_bmin, g_bmax, g_draw_objects, g_attrib, g_shapes);
     }
 }
 
@@ -273,7 +273,7 @@ static void draw(const std::vector<DrawObject>& drawObjects) {
     glPolygonMode(GL_BACK, GL_LINE);
 
     glPolygonOffset(1.0, 10.0);
-    glColor3f(0.3f, 0.3f, 0.4f);
+    glColor3f(0.2f, 0.2f, 0.25f);
     for (size_t i = 0; i < drawObjects.size(); i++) {
         DrawObject o = drawObjects[i];
         if (o.vb_id < 1) { continue; }
@@ -297,8 +297,8 @@ static void draw(const std::vector<DrawObject>& drawObjects) {
     glPolygonMode(GL_BACK, GL_POINT);
 
     glPolygonOffset(1.0, 1.0);
-    glColor3f(0.6f, 0.6f, 0.6f);
-    glPointSize(1.f);
+    glColor3f(0.4f, 0.4f, 0.4f);
+    glPointSize(2.f);
     for (size_t i = 0; i < drawObjects.size(); i++) {
         DrawObject o = drawObjects[i];
         if (o.vb_id < 1) { continue; }
@@ -325,7 +325,7 @@ static void draw(const DrawPoints& drawPoints, float color[3]) {
     glPolygonMode(GL_BACK, GL_POINT);
     glPolygonOffset(1.0, -10.0);
     glColor3f(color[0], color[1], color[2]);
-    glPointSize(5.f);
+    glPointSize(2.f);
     if (drawPoints.vb_id >= 1) {
         glBindBuffer(GL_ARRAY_BUFFER, drawPoints.vb_id);
         glEnableClientState(GL_VERTEX_ARRAY);
@@ -389,16 +389,20 @@ int main(int argc, char** argv) {
 
     window_size_callback(window, width, height);
 
-    std::vector<tinyobj::shape_t> shapes;
-
     std::string err;
-    if (!tinyobj::LoadObj(&g_attrib, &shapes, nullptr, &err, argv[1])) {
+    if (!tinyobj::LoadObj(&g_attrib, &g_shapes, nullptr, &err, argv[1])) {
         if (!err.empty()) { std::cerr << err << std::endl; }
         glfwTerminate();
         return -1;
     }
 
+    g_draw_objects.resize(g_shapes.size());
+
     size_t src_vertex_id = 0;
+    Geodesic g;
+    g.load(g_attrib, g_shapes);
+    g_geodesic_distance = g.propagate(src_vertex_id);
+
     DrawPoints source;
     {
         std::vector<float> buffer;
@@ -411,21 +415,16 @@ int main(int argc, char** argv) {
         source.numPoints = buffer.size() / 3;
     }
 
-    glm::vec3 bmin, bmax;
-    if (!convert(bmin, bmax, &g_draw_objects, g_attrib, shapes)) {
+    if (!update_draw_objects(g_bmin, g_bmax, g_draw_objects, g_attrib, g_shapes)) {
         glfwTerminate();
         return -1;
     }
 
-    Geodesic g;
-    g.load(g_attrib, shapes);
-    g_geodesic_distance = g.propagate(src_vertex_id);
-
     update_draw_points(g_attrib);
 
-    float maxExtent = 0.5f * (bmax[0] - bmin[0]);
-    if (maxExtent < 0.5f * (bmax[1] - bmin[1])) { maxExtent = 0.5f * (bmax[1] - bmin[1]); }
-    if (maxExtent < 0.5f * (bmax[2] - bmin[2])) { maxExtent = 0.5f * (bmax[2] - bmin[2]); }
+    float maxExtent = 0.5f * (g_bmax[0] - g_bmin[0]);
+    if (maxExtent < 0.5f * (g_bmax[1] - g_bmin[1])) { maxExtent = 0.5f * (g_bmax[1] - g_bmin[1]); }
+    if (maxExtent < 0.5f * (g_bmax[2] - g_bmin[2])) { maxExtent = 0.5f * (g_bmax[2] - g_bmin[2]); }
 
     while (glfwWindowShouldClose(window) == GL_FALSE) {
         glfwPollEvents();
@@ -446,14 +445,14 @@ int main(int argc, char** argv) {
         glScalef(1.0f / maxExtent, 1.0f / maxExtent, 1.0f / maxExtent);
 
         // center object
-        glTranslatef(-0.5 * (bmax[0] + bmin[0]), -0.5 * (bmax[1] + bmin[1]), -0.5 * (bmax[2] + bmin[2]));
+        glTranslatef(-0.5 * (g_bmax[0] + g_bmin[0]), -0.5 * (g_bmax[1] + g_bmin[1]), -0.5 * (g_bmax[2] + g_bmin[2]));
 
         draw(g_draw_objects);
 
-        float green[3] = {0.f, 1.f, 0.f};
-        float red[3] = {1.f, 0.f, 0.f};
-        draw(source, green);
-        if (g_draw_points.numPoints) { draw(g_draw_points, red); }
+        float src_color[3] = {0.f, 1.f, 0.f};
+        float in_radius_color[3] = {0.8f, 0.6f, 0.6f};
+        draw(source, src_color);
+        if (g_draw_points.numPoints) { draw(g_draw_points, in_radius_color); }
 
         glfwSwapBuffers(window);
     }
