@@ -1,58 +1,39 @@
--include Makefile.config
-
-# External commands
-CMAKE ?= cmake
-CLANG_FORMAT ?= clang-format
-FIND ?= find
-MKDIR ?= mkdir -p
-PYTHON ?= python
-RM_R ?= rm -fr
-XARGS ?= xargs
-
-## Path and build flags
+#!/usr/bin/env make
+SH ?= sh
+uname_S := $(shell $(SH) -c 'uname -s || echo system')
+uname_R := $(shell $(SH) -c 'uname -r | cut -d- -f1 || echo release')
+uname_M := $(shell $(SH) -c 'uname -m || echo cpu')
 FLAVOR ?= optimize
-BUILD = build/$(FLAVOR)
-#prefix ?= /usr/local
-#libdir ?= lib
 
-## Temporary staging directory
-# DESTDIR =
-## Specified by `git make-pkg` when building .pkg files
-# mac_pkg =
+platformdir ?= $(uname_S)-$(uname_R)-$(uname_M)-$(FLAVOR)
+builddir ?= $(CURDIR)/build/$(platformdir)
 
-ifdef prefix
-    CMAKE_ARGS += -DCMAKE_INSTALL_PREFIX=$(prefix)
-endif
-ifdef libdir
-    CMAKE_ARGS += -DCMAKE_INSTALL_LIBDIR=$(libdir)
-endif
-ifdef FLAVOR
-    CMAKE_ARGS += -DFLAVOR=$(FLAVOR)
-endif
+prefix ?= $(CURDIR)/$(platformdir)
+#DESTDIR =
 
-CMAKE_FILES += Makefile
-CMAKE_FILES += $(wildcard CMakeLists.txt */*/CMakeLists.txt)
+CMAKE_FLAGS ?= -DCMAKE_INSTALL_PREFIX=$(prefix)
 
-export CXX
-export DESTDIR
-export prefix
-
-all: $(BUILD)
-	$(MAKE) -C $(BUILD) $@
+# The default target in this Makefile is...
+all::
+.PHONY: all
 
 install: all
-	$(MAKE) -C $(BUILD) $@
+	$(MAKE) -C $(builddir) DESTDIR=$(DESTDIR) install
+.PHONY: install
 
-test: all
-	$(MAKE) -C $(BUILD) $@
-
-clean:
-	$(RM_R) $(BUILD) Linux-* Darwin-*
-
-$(BUILD): $(CMAKE_FILES)
-	mkdir -p $(BUILD)
-	cd $(BUILD) && $(CMAKE) $(CMAKE_ARGS) $(EXTRA_CMAKE_ARGS) ../..
+$(builddir)/stamp: $(CMAKE_FILES)
+	mkdir -p $(builddir)
+	cd $(builddir) && cmake $(CMAKE_FLAGS) ../..
 	touch $@
+
+all:: $(builddir)/stamp
+	$(MAKE) -C $(builddir) $(MAKEARGS) all
+
+clean: $(builddir)/stamp
+	$(MAKE) -C $(builddir) $(MAKEARGS) clean
+.PHONY: clean
+
 
 format:
 	find . -name '*.cpp' -o -name '*.h' | $(XARGS) $(CLANG_FORMAT) -i
+.PHONY: format

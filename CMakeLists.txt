@@ -1,4 +1,5 @@
 project(geodesics)
+cmake_minimum_required(VERSION 3.0)
 
 include_directories(tinyobjloader)
 
@@ -13,6 +14,6 @@ add_executable(geodesics geodesics.cpp trackball.cpp)
 target_link_libraries(geodesics
   ${OPENGL_LIBRARIES}
   ${GLEW_LIBRARIES}
-  ${GLFW3_LIBRARY}
+  glfw
 )
 install(TARGETS geodesics DESTINATION bin)
