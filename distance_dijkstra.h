@@ -72,15 +72,6 @@ class DistanceGraph {
         return dist;
     }
 
-    void dump() {
-        for (size_t i = 0; i < adjacencies.size(); ++i) {
-            const auto& neighbors = adjacencies[i];
-            for (const auto& pair : neighbors) {
-                std::cout << i << " -> " << pair.first << ": " << pair.second << std::endl;
-            }
-        }
-    }
-
    private:
     void addEdge(size_t u, size_t v, float w) {
         adjacencies[u].push_back(std::make_pair(v, w));

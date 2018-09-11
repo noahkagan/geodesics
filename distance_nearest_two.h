@@ -60,12 +60,9 @@ class DistanceGraph {
 
             for (auto iter = adjacencies[u].begin(); iter != adjacencies[u].end(); ++iter) {
                 size_t v = iter->first;
-                std::cout << v << std::endl;
-                float v_dist = u_dist + iter->second;
                 for (auto iter2 = adjacencies[v].begin(); iter2 != adjacencies[v].end(); ++iter2) {
                     size_t w = iter2->first;
                     if (w != u) {
-                        std::cout << w << std::endl;
                         float w_dist = v_dist + iter2->second;
 
                         if (w_dist < dist[w]) {
@@ -83,15 +80,6 @@ class DistanceGraph {
         }
 
         return dist;
-    }
-
-    void dump() {
-        for (size_t i = 0; i < adjacencies.size(); ++i) {
-            const auto& neighbors = adjacencies[i];
-            for (const auto& pair : neighbors) {
-                std::cout << i << " -> " << pair.first << ": " << pair.second << std::endl;
-            }
-        }
     }
 
    private:
