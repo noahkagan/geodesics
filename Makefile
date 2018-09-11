@@ -35,5 +35,5 @@ clean: $(builddir)/stamp
 
 
 format:
-	find . -name '*.cpp' -o -name '*.h' | $(XARGS) $(CLANG_FORMAT) -i
+	find . -name '*.cpp' -o -name '*.h' | xargs clang-format -i
 .PHONY: format
