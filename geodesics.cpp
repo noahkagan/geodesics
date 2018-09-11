@@ -14,7 +14,8 @@
 #include <GLFW/glfw3.h>
 #include <glm/gtx/normal.hpp>
 
-#include "distance_nearest_two.h"
+#include "distance_world_space.h"
+// #include "distance_nearest_two.h"
 // #include "geodesic_dijkstra.h"
 #include "math.h"
 #include "trackball.h"
