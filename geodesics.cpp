@@ -14,7 +14,8 @@
 #include <GLFW/glfw3.h>
 #include <glm/gtx/normal.hpp>
 
-#include "geodesic_dijkstra.h"
+#include "distance_nearest_two.h"
+// #include "geodesic_dijkstra.h"
 #include "math.h"
 #include "trackball.h"
 
@@ -30,15 +31,15 @@ typedef struct {
     int numPoints;
 } DrawPoints;
 
-float g_geodesic_radius_mod = 1.f;
-float g_geodesic_radius = 10.f;
+float g_radius_mod = 1.0f;
+float g_radius = 1.f;
 std::vector<DrawObject> g_draw_objects;
 DrawPoints g_draw_points;
 
 tinyobj::attrib_t g_attrib;
 std::vector<tinyobj::shape_t> g_shapes;
 glm::vec3 g_bmin, g_bmax;
-std::vector<float> g_geodesic_distance;
+std::vector<float> g_distance;
 
 int width = 768;
 int height = 768;
@@ -109,8 +110,9 @@ static bool update_draw_objects(glm::vec3& bmin, glm::vec3& bmax, std::vector<Dr
                 o.buffer[b++] = n[k][2];
 
                 glm::vec3 diffuse{1.0f, 0.0f, 0.0f};
-                float dist = g_geodesic_distance[shapes[s].mesh.indices[3 * f + k].vertex_index];
-                dist = (g_geodesic_radius - dist) / g_geodesic_radius;
+                float dist = g_distance[shapes[s].mesh.indices[3 * f + k].vertex_index];
+                dist = (g_radius - dist) / g_radius;
+                dist = std::max(dist, 0.f);
                 glm::vec3 color = dist*diffuse;
                 o.buffer[b++] = color[0];
                 o.buffer[b++] = color[1];
@@ -133,21 +135,22 @@ static bool update_draw_objects(glm::vec3& bmin, glm::vec3& bmax, std::vector<Dr
 }
 
 void update_draw_points(const tinyobj::attrib_t& attrib) {
-    g_draw_points.buffer.resize(g_geodesic_distance.size() * 3);
+    g_draw_points.buffer.resize(g_distance.size() * 3);
     size_t b = 0;
-    for (size_t i = 0; i < g_geodesic_distance.size(); ++i) {
-        if (g_geodesic_distance[i] <= g_geodesic_radius) {
+    g_draw_points.numPoints = 0;
+    for (size_t i = 0; i < g_distance.size(); ++i) {
+        if (g_distance[i] <= g_radius) {
             g_draw_points.buffer[b++] = attrib.vertices[3 * i + 0];
             g_draw_points.buffer[b++] = attrib.vertices[3 * i + 1];
             g_draw_points.buffer[b++] = attrib.vertices[3 * i + 2];
+            ++g_draw_points.numPoints;
         }
     }
     if (!g_draw_points.buffer.empty()) {
         glGenBuffers(1, &g_draw_points.vb_id);
         glBindBuffer(GL_ARRAY_BUFFER, g_draw_points.vb_id);
-        glBufferData(GL_ARRAY_BUFFER, g_draw_points.buffer.size() * sizeof(float), &g_draw_points.buffer.at(0), GL_STATIC_DRAW);
+        glBufferData(GL_ARRAY_BUFFER, g_draw_points.numPoints * 3 * sizeof(float), &g_draw_points.buffer.at(0), GL_STATIC_DRAW);
     }
-    g_draw_points.numPoints = g_draw_points.buffer.size() / 3;
 }
 
 static void window_size_callback(GLFWwindow* window, int w, int h) {
@@ -208,11 +211,11 @@ static void mouse_button_callback(GLFWwindow* window, int button, int action, in
 
 static void scroll_callback(GLFWwindow* window, double xoffset, double yoffset) {
     if (leftShiftPressed) {
-        g_geodesic_radius_mod *= yoffset > 0 ? 2.f : 0.5f;
-        printf("radius mod: %f\n", g_geodesic_radius_mod);
+        g_radius_mod *= yoffset > 0 ? 2.f : 0.5f;
+        printf("radius mod: %f\n", g_radius_mod);
     } else {
-        g_geodesic_radius += yoffset*g_geodesic_radius_mod;
-        printf("radius: %f\n", g_geodesic_radius);
+        g_radius += yoffset*g_radius_mod;
+        printf("radius: %f\n", g_radius);
         update_draw_points(g_attrib);
         update_draw_objects(g_bmin, g_bmax, g_draw_objects, g_attrib, g_shapes);
     }
@@ -329,7 +332,7 @@ static void draw(const DrawPoints& drawPoints, float color[3]) {
     glPolygonMode(GL_BACK, GL_POINT);
     glPolygonOffset(1.0, -10.0);
     glColor3f(color[0], color[1], color[2]);
-    glPointSize(2.f);
+    glPointSize(3.f);
     if (drawPoints.vb_id >= 1) {
         glBindBuffer(GL_ARRAY_BUFFER, drawPoints.vb_id);
         glEnableClientState(GL_VERTEX_ARRAY);
@@ -360,6 +363,20 @@ int main(int argc, char** argv) {
     if (argc < 2) {
         std::cout << "Needs input.obj\n" << std::endl;
         return 0;
+    }
+
+    enum Algorithm {
+        DIJKSTRA,
+        TWO_NEAREST_NEIGHBOR,
+    };
+    Algorithm alg = DIJKSTRA;
+    if (argc >= 3) {
+        int m = atoi(argv[2]);
+        switch(m) {
+            case 0: alg = DIJKSTRA; break;
+            case 1: alg = TWO_NEAREST_NEIGHBOR; break;
+            default: std::cout << "unrecognized algorithm selection, defaulting to Dijkstra's" << std::endl; break;
+        }
     }
 
     init();
@@ -403,9 +420,10 @@ int main(int argc, char** argv) {
     g_draw_objects.resize(g_shapes.size());
 
     size_t src_vertex_id = 0;
-    Geodesic g;
+    DistanceGraph g;
     g.load(g_attrib, g_shapes);
-    g_geodesic_distance = g.propagate(src_vertex_id);
+    g_distance = g.propagate(src_vertex_id);
+    for (size_t i = 0; i < g_distance.size(); ++i) { std::cout << i << ": " << g_distance[i] << std::endl; }
 
     DrawPoints source;
     {
