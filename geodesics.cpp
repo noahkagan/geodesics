@@ -5,6 +5,7 @@
 #include <cstdlib>
 #include <iostream>
 #include <limits>
+#include <memory>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -14,9 +15,9 @@
 #include <GLFW/glfw3.h>
 #include <glm/gtx/normal.hpp>
 
+#include "distance_dijkstra.h"
+#include "distance_nearest_two.h"
 #include "distance_world_space.h"
-// #include "distance_nearest_two.h"
-// #include "geodesic_dijkstra.h"
 #include "math.h"
 #include "trackball.h"
 
@@ -368,15 +369,17 @@ int main(int argc, char** argv) {
     }
 
     enum Algorithm {
+        WORLD_SPACE,
         DIJKSTRA,
         TWO_NEAREST_NEIGHBOR,
     };
-    Algorithm alg = DIJKSTRA;
+    Algorithm alg = WORLD_SPACE;
     if (argc >= 3) {
         int m = atoi(argv[2]);
         switch (m) {
-            case 0: alg = DIJKSTRA; break;
-            case 1: alg = TWO_NEAREST_NEIGHBOR; break;
+            case 0: alg = WORLD_SPACE; break;
+            case 1: alg = DIJKSTRA; break;
+            case 2: alg = TWO_NEAREST_NEIGHBOR; break;
             default: std::cout << "unrecognized algorithm selection, defaulting to Dijkstra's" << std::endl; break;
         }
     }
@@ -422,9 +425,23 @@ int main(int argc, char** argv) {
     g_draw_objects.resize(g_shapes.size());
 
     size_t src_vertex_id = 0;
-    DistanceGraph g;
-    g.load(g_attrib, g_shapes);
-    g_distance = g.propagate(src_vertex_id);
+    std::unique_ptr<DistanceAlgorithm> g;
+    switch (alg) {
+        case WORLD_SPACE: {
+            std::cout << "using world space distance" << std::endl;
+            g.reset(new WorldSpaceAlgorithm());
+        } break;
+        case DIJKSTRA: {
+            std::cout << "using dijstra's with edge distance" << std::endl;
+            g.reset(new DijkstraAlgorithm());
+        } break;
+        case TWO_NEAREST_NEIGHBOR: {
+            std::cout << "using 2-nearest neighbor" << std::endl;
+            g.reset(new NearestTwoAlgorithm());
+        } break;
+    }
+    g->load(g_attrib, g_shapes);
+    g_distance = g->propagate(src_vertex_id);
     for (size_t i = 0; i < g_distance.size(); ++i) { std::cout << i << ": " << g_distance[i] << std::endl; }
 
     DrawPoints source;

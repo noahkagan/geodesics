@@ -5,18 +5,12 @@
 #include <queue>
 #include <set>
 #include <utility>
-#include <vector>
 
-#define TINYOBJLOADER_IMPLEMENTATION
-#include "tinyobjloader/tiny_obj_loader.h"
-
-#include <glm/glm.hpp>
-
-class DistanceGraph {
+class WorldSpaceAlgorithm : public DistanceAlgorithm {
    public:
-    DistanceGraph() : vertices() {}
+    WorldSpaceAlgorithm() : vertices() {}
 
-    void load(const tinyobj::attrib_t& attrib, const std::vector<tinyobj::shape_t>& shapes) {
+    void load(const tinyobj::attrib_t& attrib, const std::vector<tinyobj::shape_t>& shapes) override final {
         size_t numVerts = attrib.vertices.size() / 3;
         vertices.reserve(numVerts);
 
@@ -31,12 +25,10 @@ class DistanceGraph {
         }
     }
 
-    std::vector<float> propagate(int src) {
+    std::vector<float> propagate(int src) override final {
         std::vector<float> dist(vertices.size(), std::numeric_limits<float>::max());
         const glm::vec3& v = vertices[src];
-        for (size_t i = 0; i < vertices.size(); ++i) {
-            dist[i] = glm::length(v - vertices[i]);
-        }
+        for (size_t i = 0; i < vertices.size(); ++i) { dist[i] = glm::length(v - vertices[i]); }
         return dist;
     }
 

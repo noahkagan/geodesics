@@ -5,18 +5,14 @@
 #include <queue>
 #include <set>
 #include <utility>
-#include <vector>
 
-#define TINYOBJLOADER_IMPLEMENTATION
-#include "tinyobjloader/tiny_obj_loader.h"
+#include "DistanceAlgorithm.h"
 
-#include <glm/glm.hpp>
-
-class DistanceGraph {
+class DijkstraAlgorithm : public DistanceAlgorithm {
    public:
-    DistanceGraph() : adjacencies() {}
+    DijkstraAlgorithm() : adjacencies() {}
 
-    void load(const tinyobj::attrib_t& attrib, const std::vector<tinyobj::shape_t>& shapes) {
+    void load(const tinyobj::attrib_t& attrib, const std::vector<tinyobj::shape_t>& shapes) override final {
         size_t numVerts = attrib.vertices.size() / 3;
         adjacencies.resize(numVerts);
 
@@ -43,7 +39,7 @@ class DistanceGraph {
         }
     }
 
-    std::vector<float> propagate(int src) {
+    std::vector<float> propagate(int src) override final {
         typedef std::pair<float, size_t> queue_entry_t;  // distance, index
         std::vector<float> dist(adjacencies.size(), std::numeric_limits<float>::max());
         dist[src] = 0;

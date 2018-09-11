@@ -5,16 +5,12 @@
 #include <queue>
 #include <set>
 #include <utility>
-#include <vector>
 
-#define TINYOBJLOADER_IMPLEMENTATION
-#include "tinyobjloader/tiny_obj_loader.h"
+#include "DistanceAlgorithm.h"
 
-#include <glm/glm.hpp>
-
-class DistanceGraph {
+class NearestTwoAlgorithm : public DistanceAlgorithm {
    public:
-    DistanceGraph() : adjacencies() {}
+    NearestTwoAlgorithm() : adjacencies() {}
 
     void load(const tinyobj::attrib_t& attrib, const std::vector<tinyobj::shape_t>& shapes) {
         size_t numVerts = attrib.vertices.size() / 3;
@@ -60,6 +56,7 @@ class DistanceGraph {
 
             for (auto iter = adjacencies[u].begin(); iter != adjacencies[u].end(); ++iter) {
                 size_t v = iter->first;
+                float v_dist = iter->second;
                 for (auto iter2 = adjacencies[v].begin(); iter2 != adjacencies[v].end(); ++iter2) {
                     size_t w = iter2->first;
                     if (w != u) {
