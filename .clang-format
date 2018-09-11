@@ -1,0 +1,11 @@
+BasedOnStyle: Google
+AllowShortBlocksOnASingleLine: 'true'
+AllowShortCaseLabelsOnASingleLine: 'true'
+AllowShortFunctionsOnASingleLine: All
+AllowShortIfStatementsOnASingleLine: 'true'
+AllowShortLoopsOnASingleLine: 'true'
+ColumnLimit: '119'
+DerivePointerAlignment: 'false'
+IndentWidth: '4'
+PointerAlignment: Left
+UseTab: 'Never'

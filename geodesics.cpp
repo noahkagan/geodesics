@@ -64,7 +64,7 @@ static void check_gl_errors(const std::string& desc) {
 }
 
 static bool update_draw_objects(glm::vec3& bmin, glm::vec3& bmax, std::vector<DrawObject>& drawObjects,
-                    const tinyobj::attrib_t& attrib, const std::vector<tinyobj::shape_t>& shapes) {
+                                const tinyobj::attrib_t& attrib, const std::vector<tinyobj::shape_t>& shapes) {
     bmin[0] = bmin[1] = bmin[2] = std::numeric_limits<float>::max();
     bmax[0] = bmax[1] = bmax[2] = -std::numeric_limits<float>::max();
 
@@ -113,7 +113,7 @@ static bool update_draw_objects(glm::vec3& bmin, glm::vec3& bmax, std::vector<Dr
                 float dist = g_distance[shapes[s].mesh.indices[3 * f + k].vertex_index];
                 dist = (g_radius - dist) / g_radius;
                 dist = std::max(dist, 0.f);
-                glm::vec3 color = dist*diffuse;
+                glm::vec3 color = dist * diffuse;
                 o.buffer[b++] = color[0];
                 o.buffer[b++] = color[1];
                 o.buffer[b++] = color[2];
@@ -149,7 +149,8 @@ void update_draw_points(const tinyobj::attrib_t& attrib) {
     if (!g_draw_points.buffer.empty()) {
         glGenBuffers(1, &g_draw_points.vb_id);
         glBindBuffer(GL_ARRAY_BUFFER, g_draw_points.vb_id);
-        glBufferData(GL_ARRAY_BUFFER, g_draw_points.numPoints * 3 * sizeof(float), &g_draw_points.buffer.at(0), GL_STATIC_DRAW);
+        glBufferData(GL_ARRAY_BUFFER, g_draw_points.numPoints * 3 * sizeof(float), &g_draw_points.buffer.at(0),
+                     GL_STATIC_DRAW);
     }
 }
 
@@ -214,7 +215,7 @@ static void scroll_callback(GLFWwindow* window, double xoffset, double yoffset) 
         g_radius_mod *= yoffset > 0 ? 2.f : 0.5f;
         printf("radius mod: %f\n", g_radius_mod);
     } else {
-        g_radius += yoffset*g_radius_mod;
+        g_radius += yoffset * g_radius_mod;
         printf("radius: %f\n", g_radius);
         update_draw_points(g_attrib);
         update_draw_objects(g_bmin, g_bmax, g_draw_objects, g_attrib, g_shapes);
@@ -372,7 +373,7 @@ int main(int argc, char** argv) {
     Algorithm alg = DIJKSTRA;
     if (argc >= 3) {
         int m = atoi(argv[2]);
-        switch(m) {
+        switch (m) {
             case 0: alg = DIJKSTRA; break;
             case 1: alg = TWO_NEAREST_NEIGHBOR; break;
             default: std::cout << "unrecognized algorithm selection, defaulting to Dijkstra's" << std::endl; break;
