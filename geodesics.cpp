@@ -16,7 +16,6 @@
 #include <glm/gtx/normal.hpp>
 
 #include "distance_dijkstra.h"
-#include "distance_nearest_two.h"
 #include "distance_world_space.h"
 #include "math.h"
 #include "trackball.h"
@@ -371,7 +370,6 @@ int main(int argc, char** argv) {
     enum Algorithm {
         WORLD_SPACE,
         DIJKSTRA,
-        TWO_NEAREST_NEIGHBOR,
     };
     Algorithm alg = WORLD_SPACE;
     if (argc >= 3) {
@@ -379,7 +377,6 @@ int main(int argc, char** argv) {
         switch (m) {
             case 0: alg = WORLD_SPACE; break;
             case 1: alg = DIJKSTRA; break;
-            case 2: alg = TWO_NEAREST_NEIGHBOR; break;
             default: std::cout << "unrecognized algorithm selection, defaulting to Dijkstra's" << std::endl; break;
         }
     }
@@ -434,10 +431,6 @@ int main(int argc, char** argv) {
         case DIJKSTRA: {
             std::cout << "using dijstra's with edge distance" << std::endl;
             g.reset(new DijkstraAlgorithm());
-        } break;
-        case TWO_NEAREST_NEIGHBOR: {
-            std::cout << "using 2-nearest neighbor" << std::endl;
-            g.reset(new NearestTwoAlgorithm());
         } break;
     }
     g->load(g_attrib, g_shapes);
